@@ -1,36 +1,36 @@
 // ファイル: /api/generate-image.js
+// Canva から呼び出される画像生成 API。
+// CORS を許可し、画像 URL を JSON 形式で返すサンプル実装です。
 
 export default async function handler(req, res) {
-  // CORSヘッダーを設定
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  // --- CORS ヘッダー -----------------------------
+  res.setHeader("Access-Control-Allow-Origin", "*"); // 必要に応じて Canva のドメインに限定
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // OPTIONSリクエストには即時応答
+  // プリフライト（OPTIONS）リクエストに即応答
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // POST以外は拒否
+  // POST 以外は拒否
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
   try {
-    const { title } = req.body;
+    const { title = "Untitled" } = req.body ?? {};
 
-    // 仮の画像生成処理（Canvasなどを使って実際に画像を生成する）
-    // 今回は空のPNG画像をBase64で返すサンプルとする
-    const imageBuffer = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAADwAAABACAYAAAB6e1rxAAAAAXNSR0IArs4c6QAAACNJREFUaEPt0zEOACAIAzHf+Z+cYwUBrig1lbYVCIIgCIIgCIIgCPxgFGf2UVBfmlAAAAAElFTkSuQmCC",
-      "base64"
-    );
+    // ------------------ 画像生成ロジック ------------------
+    // デモとして DummyImage サービスで作った画像 URL を返すだけ。
+    // 本番では DALL·E などで生成 → S3 等にアップロード → URL を返す処理に差し替えてください。
+    const encoded = encodeURIComponent(title);
+    const imageUrl = `https://dummyimage.com/1792x1024/000/fff.png&text=${encoded}`;
+    // ------------------------------------------------------
 
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Content-Disposition", "inline; filename=generated.png");
-    res.status(200).end(imageBuffer);
+    return res.status(200).json({ imageUrl });
   } catch (error) {
     console.error("Error generating image:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
