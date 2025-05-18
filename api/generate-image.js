@@ -1,35 +1,36 @@
+// ファイル: /api/generate-image.js
+
 export default async function handler(req, res) {
-  // CORS対応：OPTIONSメソッドに対応する
+  // CORSヘッダーを設定
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // OPTIONSリクエストには即時応答
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
   }
 
   // POST以外は拒否
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ message: "Method Not Allowed" });
   }
 
   try {
     const { title } = req.body;
 
-    // ここでは仮に生成画像として1枚の固定画像URLを返します
-    // 実際には title に応じて画像を生成してもOKです
-    const imageUrl = "https://dummyimage.com/1792x1024/000/fff&text=" + encodeURIComponent(title);
+    // 仮の画像生成処理（Canvasなどを使って実際に画像を生成する）
+    // 今回は空のPNG画像をBase64で返すサンプルとする
+    const imageBuffer = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAADwAAABACAYAAAB6e1rxAAAAAXNSR0IArs4c6QAAACNJREFUaEPt0zEOACAIAzHf+Z+cYwUBrig1lbYVCIIgCIIgCIIgCPxgFGf2UVBfmlAAAAAElFTkSuQmCC",
+      "base64"
+    );
 
-    const response = await fetch(imageUrl);
-    const imageBuffer = await response.arrayBuffer();
-
-    // CORSヘッダーの追加
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "image/png");
-
-    return res.status(200).send(Buffer.from(imageBuffer));
+    res.setHeader("Content-Disposition", "inline; filename=generated.png");
+    res.status(200).end(imageBuffer);
   } catch (error) {
     console.error("Error generating image:", error);
-    return res.status(500).json({ error: "Failed to generate image" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 }
