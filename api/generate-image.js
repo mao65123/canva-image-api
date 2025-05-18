@@ -1,52 +1,47 @@
-/**
- * Canva から呼び出す画像生成 API（Next.js / Vercel 用）
- * ----------------------------------------------------------
- * 1. CORS を許可（Access-Control-Allow-* ヘッダー）
- * 2. POST で受け取った `title` を使い画像を生成する（ここではダミー）
- * 3. 生成した PNG を Base64 → dataUrl にして JSON で返す
- *
- * 返り値:
- *   { dataUrl: "data:image/png;base64,..." }
- *
- * Canva Apps SDK v2 では `image: { dataUrl }` で挿入すると動作確認がラク。
- */
+// /api/generate-image.js
 
 export default async function handler(req, res) {
-  // ===== CORS ヘッダー =====
-  res.setHeader("Access-Control-Allow-Origin", "*");           // まずは *（開発用）。本番は Canva のドメインに制限推奨
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  // プリフライトへの即時応答
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  // POST 以外は拒否
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method Not Allowed" });
-  }
-
   try {
-    const { title = "Untitled" } = req.body ?? {};
+    // 1. リクエスト内容を確認
+    const { title } = req.body || {};
+    console.log("▶️ API called, title:", title);
 
-    // ==========================================================
-    // (A) ここに本物の画像生成ロジックを入れると本番準備完了
-    //     例) OpenAI DALL·E → PNG Buffer
-    //
-    // ▼ デモ用: 白 60×20 PNG にタイトル文字を載せたダミー画像を生成
-    //   ─ Canvas 等を使わず、1×1 白PNGの Base64 でサンプル返却 ─
-    // ==========================================================
-    const base64White1px =
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wIAAgMBAjYh4XkAAAAASUVORK5CYII=";
+    if (!title) {
+      console.error("❌ No title received");
+      return res.status(400).json({ error: "title required" });
+    }
 
-    // data:image/png;base64,<...>
-    const dataUrl = `data:image/png;base64,${base64White1px}`;
+    // 2. OpenAI へ画像生成リクエスト
+    const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: `"${title}" をイメージした、近未来のビジネス都市の風景`,
+        size: "1792x1024",
+        n: 1,
+        response_format: "b64_json", // ← base64 で受け取る
+      }),
+    });
 
-    // JSON で返却
-    return res.status(200).json({ dataUrl });
-  } catch (error) {
-    console.error("Image generation failed:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    const data = await openaiRes.json();
+
+    // 3. エラーハンドリング
+    if (!openaiRes.ok) {
+      console.error("❌ OpenAI error:", data);
+      return res.status(openaiRes.status).json(data);
+    }
+
+    const b64 = data.data?.[0]?.b64_json;
+    console.log("✅ OpenAI success, bytes:", b64?.length);
+
+    // 4. dataUrl にして返す
+    res.status(200).json({ dataUrl: `data:image/png;base64,${b64}` });
+  } catch (err) {
+    console.error("❌ Unexpected error", err);
+    res.status(500).json({ error: "internal" });
   }
 }
